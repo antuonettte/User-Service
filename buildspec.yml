@@ -12,13 +12,14 @@ phases:
     commands:
       - echo "Zipping Deployment Package"
       - cd lambdafunction
-      - zip -r ../car_network_build_package.zip .
       - zip -r ../dependency_layer.zip python/
+      - rm -rf python/
+      - zip -r ../user_service_build_package.zip .
       - cd ..
   post_build: 
     commands:
       - echo "Deploying to Lambda Function..."
-      - aws lambda update-function-code --function-name User-Service --zip-file fileb://car_network_build_package.zip
+      - aws lambda update-function-code --function-name User-Service --zip-file fileb://user_service_build_package.zip
       - echo "Lambda Deployed"
       - layer_arn=$(aws lambda publish-layer-version --layer-name user-service-dependencies --zip-file fileb://dependency_layer.zip --output text --query 'LayerVersionArn')
       - echo "Layer Created"
