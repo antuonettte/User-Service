@@ -1,6 +1,7 @@
 import json
 import boto3
 import pymysql
+import requests
 
 # Database configuration
 db_host = 'car-network-db.c5kgayasi5x2.us-east-1.rds.amazonaws.com'
