@@ -89,7 +89,6 @@ def lambda_handler(event, context):
             path = event.get('resource')
             if path == '/user-management/user':
                 user_id = query_parameters.get('user_id')
-                # EVERYTHING WORKS BUT THE USERS THAT WERE FOLLOWED OR FOLLOW the user that was deleted, their follower/following count doesn't change. Fix it.
                 return delete_user_data(user_id)
             else:
                 return {
@@ -203,6 +202,20 @@ def delete_user_data(user_id):
     DELETE FROM comments
     WHERE post_id IN %s
     '''
+
+    # Decrement follower_count for users followed by the user being deleted
+    decrement_followers_count_sql = '''
+    UPDATE users 
+    SET follower_count = follower_count - 1 
+    WHERE id IN ( SELECT user_id FROM followers WHERE follower_id = %s )
+    '''
+
+    # Decrement following_count for users who followed the user being deleted
+    decrement_following_count_sql = '''
+    UPDATE users 
+    SET following_count = following_count - 1 
+    WHERE id IN ( SELECT follower_id FROM followers WHERE user_id = %s )
+    '''
     
     user_conn = pymysql.connect(
         host=USER_DB_HOST,
@@ -226,34 +239,38 @@ def delete_user_data(user_id):
     )
 
     try:
-        
         logger.info("Getting Post ID's")
         post_ids = get_post_ids_for_user(user_id, DOMAIN_ENDPOINT)
         logger.info(post_ids)
         
+        with user_conn.cursor() as cursor:
+            # Start transaction
+            user_conn.begin()
+            logger.info("Updating follower and following counts")
+            cursor.execute(decrement_followers_count_sql, (user_id,))
+            cursor.execute(decrement_following_count_sql, (user_id,))
+
+            # Delete follower relationships
+            logger.info("Deleting Follower Relationships")
+            cursor.execute(delete_follower_sql, (user_id, user_id))
+
+            # Delete user
+            logger.info("Deleting User")
+            cursor.execute(delete_user_sql, (user_id,))
+
+            # Commit transaction
+            user_conn.commit()
+        
         # Delete comments
         logger.info("Deleting Comments")
         with comments_conn.cursor() as cursor:
-            cursor.execute(delete_comments_sql, ( post_ids, ))
+            cursor.execute(delete_comments_sql, (post_ids,))
         
         # Delete posts
         logger.info("Deleting Posts")
         with posts_conn.cursor() as cursor:
             cursor.execute(delete_posts_sql, (user_id,))
         
-        # Delete follower relationships
-        logger.info("Deleting Follower Relationships")
-        with user_conn.cursor() as cursor:
-            cursor.execute(delete_follower_sql, (user_id, user_id))
-        
-        # Delete user
-        logger.info("Deleting User")
-        with user_conn.cursor() as cursor:
-            cursor.execute(delete_user_sql, (user_id,))
-        
-        
-        
-        user_conn.commit()
         posts_conn.commit()
         comments_conn.commit()
         
@@ -268,11 +285,12 @@ def delete_user_data(user_id):
         comments_conn.rollback()
         logger.error(str(e))
         raise e
+        
     finally:
         user_conn.close()
         posts_conn.close()
         comments_conn.close()
-
+        
 def get_all_users(event):
     connection = pymysql.connect(
         host=USER_DB_HOST,
@@ -469,6 +487,100 @@ def create_user(user_data):
         }
     finally:
         connection.close()
+
+# def delete_user_data(user_id):
+#     # Delete user from users table
+#     delete_user_sql = '''
+#     DELETE FROM users
+#     WHERE id = %s
+#     '''
+    
+#     # Delete posts from posts table
+#     delete_posts_sql = '''
+#     DELETE FROM posts
+#     WHERE user_id = %s
+#     '''
+    
+#     # Delete follower relationships
+#     delete_follower_sql = '''
+#     DELETE FROM followers
+#     WHERE user_id = %s OR follower_id = %s
+#     '''
+    
+#     # Delete comments related to user's posts
+#     delete_comments_sql = '''
+#     DELETE FROM comments
+#     WHERE post_id IN %s
+#     '''
+    
+#     user_conn = pymysql.connect(
+#         host=USER_DB_HOST,
+#         user=USER_DB_USER,
+#         password=USER_DB_PASSWORD,
+#         database=USER_DB_NAME
+#     )
+    
+#     posts_conn = pymysql.connect(
+#         host=POSTS_DB_HOST,
+#         user=POSTS_DB_USER,
+#         password=POSTS_DB_PASSWORD,
+#         database=POSTS_DB_NAME
+#     )
+    
+#     comments_conn = pymysql.connect(
+#         host=COMMENT_DB_HOST,
+#         user=COMMENT_DB_USER,
+#         password=COMMENT_DB_PASSWORD,
+#         database=COMMENT_DB_NAME
+#     )
+
+#     try:
+        
+#         logger.info("Getting Post ID's")
+#         post_ids = get_post_ids_for_user(user_id, DOMAIN_ENDPOINT)
+#         logger.info(post_ids)
+        
+#         # Delete comments
+#         logger.info("Deleting Comments")
+#         with comments_conn.cursor() as cursor:
+#             cursor.execute(delete_comments_sql, ( post_ids, ))
+        
+#         # Delete posts
+#         logger.info("Deleting Posts")
+#         with posts_conn.cursor() as cursor:
+#             cursor.execute(delete_posts_sql, (user_id,))
+        
+#         # Delete follower relationships
+#         logger.info("Deleting Follower Relationships")
+#         with user_conn.cursor() as cursor:
+#             cursor.execute(delete_follower_sql, (user_id, user_id))
+        
+#         # Delete user
+#         logger.info("Deleting User")
+#         with user_conn.cursor() as cursor:
+#             cursor.execute(delete_user_sql, (user_id,))
+        
+        
+        
+#         user_conn.commit()
+#         posts_conn.commit()
+#         comments_conn.commit()
+        
+#         return {
+#             'statusCode': 200,
+#             'body': json.dumps({'message': 'User Successfully Deleted'})
+#         }
+        
+#     except Exception as e:
+#         user_conn.rollback()
+#         posts_conn.rollback()
+#         comments_conn.rollback()
+#         logger.error(str(e))
+#         raise e
+#     finally:
+#         user_conn.close()
+#         posts_conn.close()
+#         comments_conn.close()
 
 # def create_user(user_data):
 #     # Extract user data from request body
