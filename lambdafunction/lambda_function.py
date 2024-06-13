@@ -156,7 +156,6 @@ def get_user_by_id(user_id):
     finally:
         connection.close()
     
-
 def get_post_ids_for_user(user_id, domain_endpoint):
     url = f"https://{domain_endpoint}/posts/_search"
     headers = {"Content-Type": "application/json"}
@@ -262,9 +261,10 @@ def delete_user_data(user_id):
             user_conn.commit()
         
         # Delete comments
-        logger.info("Deleting Comments")
-        with comments_conn.cursor() as cursor:
-            cursor.execute(delete_comments_sql, (post_ids,))
+        if post_ids:
+            logger.info("Deleting Comments")
+            with comments_conn.cursor() as cursor:
+                cursor.execute(delete_comments_sql, (post_ids,))
         
         # Delete posts
         logger.info("Deleting Posts")
