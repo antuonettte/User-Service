@@ -89,6 +89,7 @@ def lambda_handler(event, context):
             path = event.get('resource')
             if path == '/user-management/user':
                 user_id = query_parameters.get('user_id')
+                # EVERYTHING WORKS BUT THE USERS THAT WERE FOLLOWED OR FOLLOW the user that was deleted, their follower/following count doesn't change. Fix it.
                 return delete_user_data(user_id)
             else:
                 return {
