@@ -3,6 +3,7 @@ import pymysql
 import logging
 from collections import defaultdict
 import requests
+import os
 
 #Scripts
 # Insert the follow relationship into the follower table
@@ -32,27 +33,15 @@ WHERE user_id = %s AND follower_id = %s
 '''
 
 # Constants
-POSTS_DB_HOST = 'car-network-db.c5kgayasi5x2.us-east-1.rds.amazonaws.com'
-POSTS_DB_USER = 'admin'
-POSTS_DB_PASSWORD = 'FrostGaming1!'
-POSTS_DB_NAME = 'post_db'
+DB_HOST = os.environ['DB_HOST']
+DB_USER = os.environ['DB_USER']
+DB_PASSWORD = os.environ['DB_PASSWORD']
+POSTS_DB_NAME = os.environ['POST_DB_NAME']
+MEDIA_DB_NAME = os.environ['MEDIA_DB_NAME']
+COMMENT_DB_NAME = os.environ['COMMENT_DB_NAME']
+USER_DB_NAME = os.environ['USER_DB_NAME']
 
-MEDIA_DB_HOST = 'car-network-db.c5kgayasi5x2.us-east-1.rds.amazonaws.com'
-MEDIA_DB_USER = 'admin'
-MEDIA_DB_PASSWORD = 'FrostGaming1!'
-MEDIA_DB_NAME = 'media_metadata_db'
-
-COMMENT_DB_HOST = 'car-network-db.c5kgayasi5x2.us-east-1.rds.amazonaws.com'
-COMMENT_DB_USER = 'admin'
-COMMENT_DB_PASSWORD = 'FrostGaming1!'
-COMMENT_DB_NAME = 'comment_db'
-
-USER_DB_HOST = 'car-network-db.c5kgayasi5x2.us-east-1.rds.amazonaws.com'
-USER_DB_USER = 'admin'
-USER_DB_PASSWORD = 'FrostGaming1!'
-USER_DB_NAME = 'user_db'
-
-DOMAIN_ENDPOINT = 'vpc-car-network-open-search-qkd46v7okrwchflkznxsldkx4y.aos.us-east-1.on.aws'
+DOMAIN_ENDPOINT = os.environ['DOMAIN_ENDPOINT']
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -93,24 +82,36 @@ def lambda_handler(event, context):
             else:
                 return {
                     'statusCode': 500,
+                    'headers': {
+                      "Access-Control-Allow-Origin": "*", 
+                      "Access-Control-Allow-Credentials": 'true',
+                    },
                     'body': json.dumps({'error': 'Unauthorized Resource Path'})
                 }
         else:
             return {
                 'statusCode': 405,
+                'headers': {
+                      "Access-Control-Allow-Origin": "*", 
+                      "Access-Control-Allow-Credentials": 'true',
+                    },
                 'body': json.dumps({'error': 'Method Not Allowed'})
             }
     except Exception as e:
         return {
             'statusCode': 500,
+            'headers': {
+                      "Access-Control-Allow-Origin": "*", 
+                      "Access-Control-Allow-Credentials": 'true',
+                    },
             'body': json.dumps({'error': str(e)})
         }
     
 def get_user_by_id(user_id):
     connection = pymysql.connect(
-        host=USER_DB_HOST,
-        user=USER_DB_USER,
-        password=USER_DB_PASSWORD,
+        host=DB_HOST,
+        user=DB_USER,
+        password=DB_PASSWORD,
         database=USER_DB_NAME
     )
     
@@ -123,6 +124,10 @@ def get_user_by_id(user_id):
             if not result:
                 return {
                     'statusCode': 404,
+                    'headers': {
+                      "Access-Control-Allow-Origin": "*", 
+                      "Access-Control-Allow-Credentials": 'true',
+                    },
                     'body': json.dumps({'error': 'User not found'})
                 }
             
@@ -144,6 +149,11 @@ def get_user_by_id(user_id):
             
             return {
                 'statusCode': 200,
+                'headers': {
+                      "Access-Control-Allow-Origin": "*", 
+                      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+                      "Access-Control-Allow-Credentials": 'true',
+                    },
                 'body': json.dumps({'user': user})
             }
         
@@ -151,6 +161,11 @@ def get_user_by_id(user_id):
         logger.error(f"Error fetching user with id {user_id}: {str(e)}")
         return {
             'statusCode': 500,
+            'headers': {
+                      "Access-Control-Allow-Origin": "*", 
+                      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+                      "Access-Control-Allow-Credentials": 'true',
+                    },
             'body': json.dumps({'error': 'Failed to retrieve user'})
         }
     finally:
@@ -217,23 +232,23 @@ def delete_user_data(user_id):
     '''
     
     user_conn = pymysql.connect(
-        host=USER_DB_HOST,
-        user=USER_DB_USER,
-        password=USER_DB_PASSWORD,
+        host=DB_HOST,
+        user=DB_USER,
+        password=DB_PASSWORD,
         database=USER_DB_NAME
     )
     
     posts_conn = pymysql.connect(
-        host=POSTS_DB_HOST,
-        user=POSTS_DB_USER,
-        password=POSTS_DB_PASSWORD,
+        host=DB_HOST,
+        user=DB_USER,
+        password=DB_PASSWORD,
         database=POSTS_DB_NAME
     )
     
     comments_conn = pymysql.connect(
-        host=COMMENT_DB_HOST,
-        user=COMMENT_DB_USER,
-        password=COMMENT_DB_PASSWORD,
+        host=DB_HOST,
+        user=DB_USER,
+        password=DB_PASSWORD,
         database=COMMENT_DB_NAME
     )
 
@@ -276,6 +291,11 @@ def delete_user_data(user_id):
         
         return {
             'statusCode': 200,
+            'headers': {
+                      "Access-Control-Allow-Origin": "*", 
+                      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+                      "Access-Control-Allow-Credentials": 'true',
+                    },
             'body': json.dumps({'message': 'User Successfully Deleted'})
         }
         
@@ -293,9 +313,9 @@ def delete_user_data(user_id):
         
 def get_all_users(event):
     connection = pymysql.connect(
-        host=USER_DB_HOST,
-        user=USER_DB_USER,
-        password=USER_DB_PASSWORD,
+        host=DB_HOST,
+        user=DB_USER,
+        password=DB_PASSWORD,
         database=USER_DB_NAME
         )
                                      
@@ -311,6 +331,11 @@ def get_all_users(event):
                 except ValueError:
                     return {
                         'statusCode': 400,
+                        'headers': {
+                      "Access-Control-Allow-Origin": "*", 
+                      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+                      "Access-Control-Allow-Credentials": 'true',
+                    },
                         'body': json.dumps({'error': 'Page must be an integer'})
                     }
             if 'limit' in query_parameters:
@@ -319,6 +344,11 @@ def get_all_users(event):
                 except ValueError:
                     return {
                         'statusCode': 400,
+                        'headers': {
+                      "Access-Control-Allow-Origin": "*", 
+                      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+                      "Access-Control-Allow-Credentials": 'true',
+                    },
                         'body': json.dumps({'error': 'Limit must be an integer'})
                     }
                 
@@ -357,12 +387,20 @@ def get_all_users(event):
         
         return {
             'statusCode': 200,
+            'headers': {
+                      "Access-Control-Allow-Origin": "*", 
+                      "Access-Control-Allow-Credentials": 'true',
+                    },
             'body': json.dumps({'users': user_list})
         }
 
     except Exception as e:
         return {
             'statusCode': 500,
+            'headers': {
+                      "Access-Control-Allow-Origin": "*", 
+                      "Access-Control-Allow-Credentials": 'true',
+                    },
             'body': json.dumps({'error': str(e)})
         }
     finally:
@@ -370,9 +408,9 @@ def get_all_users(event):
 
 def create_follow_relationship(user_id, follower_id):
     conn = pymysql.connect(
-        host=USER_DB_HOST,
-        user=USER_DB_USER,
-        password=USER_DB_PASSWORD,
+        host=DB_HOST,
+        user=DB_USER,
+        password=DB_PASSWORD,
         database=USER_DB_NAME
     )
     cursor = conn.cursor()
@@ -396,6 +434,10 @@ def create_follow_relationship(user_id, follower_id):
         
         return {
             'statusCode':201,
+            'headers': {
+                      "Access-Control-Allow-Origin": "*", 
+                      "Access-Control-Allow-Credentials": 'true',
+                    },
             'body':json.dumps({'Message':'Successfully created follower relationship'})
         }
     except Exception as e:
@@ -403,6 +445,10 @@ def create_follow_relationship(user_id, follower_id):
         conn.rollback()
         return {
             'statusCode': 500,
+            'headers': {
+                      "Access-Control-Allow-Origin": "*", 
+                      "Access-Control-Allow-Credentials": 'true',
+                    },
             'body': json.dumps(f'Error: {str(e)}')
         }
     
@@ -413,9 +459,9 @@ def check_follow_relationship(user_id, follower_id, cursor):
 
 def create_user(user_data):
     connection = pymysql.connect(
-        host=USER_DB_HOST,
-        user=USER_DB_USER,
-        password=USER_DB_PASSWORD,
+        host=DB_HOST,
+        user=DB_USER,
+        password=DB_PASSWORD,
         database=USER_DB_NAME
         )
     try:
@@ -424,17 +470,21 @@ def create_user(user_data):
 
         # Validate required fields
         logger.info("Validating Fields")
-        required_fields = ['username', 'email', 'first_name']
+        required_fields = ['id','username', 'email', 'first_name']
         for field in required_fields:
             if field not in user_data:
                 return {
                     'statusCode': 400,
+                    'headers': {
+                      "Access-Control-Allow-Origin": "*", 
+                      "Access-Control-Allow-Credentials": 'true',
+                    },
                     'body': json.dumps({'error': f'Missing required field: {field}'})
                 }
 
         # Set default values for optional fields
         optional_fields = [
-            'last_name', 'profile_picture', 'bio', 'location', 'dob',
+            'last_name', 'profile_picture_url', 'bio', 'location', 'dob',
             'phone_number', 'status', 'follower_count', 'following_count'
         ]
         for field in optional_fields:
@@ -458,15 +508,15 @@ def create_user(user_data):
         with connection.cursor() as cursor:
             sql = """
             INSERT INTO users (
-                username, email, first_name, last_name,
+                id, username, email, first_name, last_name,
                 profile_picture_url, bio, location, date_of_birth, phone_number, status,
                 follower_count, following_count
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """
-            cursor.execute(sql, (
+            cursor.execute(sql, (user_data['id'],
                 user_data['username'], user_data['email'],
-                user_data['first_name'], user_data['last_name'], user_data['profile_picture'],
-                user_data['bio'], user_data['location'], user_data['dob'], user_data['phone_number'],
+                user_data['first_name'], user_data['last_name'], user_data['profile_picture_url'],
+                user_data['bio'], user_data['location'], user_data['date_of_birth'], user_data['phone_number'],
                 user_data['status'], user_data['follower_count'], user_data['following_count']
             ))
             connection.commit()
@@ -476,6 +526,10 @@ def create_user(user_data):
 
         return {
             'statusCode': 201,
+            'headers': {
+                      "Access-Control-Allow-Origin": "*", 
+                      "Access-Control-Allow-Credentials": 'true',
+                    },
             'body': json.dumps({'message': 'User created successfully', 'user_id': user_id})
         }
 
@@ -483,6 +537,10 @@ def create_user(user_data):
         connection.rollback()
         return {
             'statusCode': 500,
+            'headers': {
+                      "Access-Control-Allow-Origin": "*", 
+                      "Access-Control-Allow-Credentials": 'true',
+                    },
             'body': json.dumps({'error': str(e)})
         }
     finally:
@@ -514,23 +572,23 @@ def create_user(user_data):
 #     '''
     
 #     user_conn = pymysql.connect(
-#         host=USER_DB_HOST,
-#         user=USER_DB_USER,
-#         password=USER_DB_PASSWORD,
+#         host=DB_HOST,
+#         user=DB_USER,
+#         password=DB_PASSWORD,
 #         database=USER_DB_NAME
 #     )
     
 #     posts_conn = pymysql.connect(
-#         host=POSTS_DB_HOST,
-#         user=POSTS_DB_USER,
-#         password=POSTS_DB_PASSWORD,
+#         host=DB_HOST,
+#         user=DB_USER,
+#         password=DB_PASSWORD,
 #         database=POSTS_DB_NAME
 #     )
     
 #     comments_conn = pymysql.connect(
-#         host=COMMENT_DB_HOST,
-#         user=COMMENT_DB_USER,
-#         password=COMMENT_DB_PASSWORD,
+#         host=DB_HOST,
+#         user=DB_USER,
+#         password=DB_PASSWORD,
 #         database=COMMENT_DB_NAME
 #     )
 
@@ -605,9 +663,9 @@ def create_user(user_data):
     
 #     # Connect to the database
 #     conn = pymysql.connect(
-#         host=USER_DB_HOST,
-#         user=USER_DB_USER,
-#         password=USER_DB_PASSWORD,
+#         host=DB_HOST,
+#         user=DB_USER,
+#         password=DB_PASSWORD,
 #         database=USER_DB_NAME
 #     )
     
